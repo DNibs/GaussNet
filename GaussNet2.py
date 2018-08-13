@@ -2,11 +2,13 @@
 # Takes 2d distribution and classifies the four quadrants
 
 # Libraries
+from __future__ import absolute_import, division, print_function #allows saving parameters
 import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 import matplotlib.pyplot as plt
-from time import time
+from time import time #allows logging
+import os #allows saving model parameters
 
 # Project Files
 import Data_Generator as DG #Generates and classifies data for testing and validation
@@ -16,8 +18,8 @@ print(tf.__version__)
 
 
 # Variables
-samples = 60000
-epochs = 30
+samples = 6000
+epochs = 20
 FLAG_hidden_layer_1 = 1 #32 nodes
 FLAG_hidden_layer_2 = 0 #4 nodes
 FLAG_hidden_layer_3 = 0 #4 nodes
@@ -25,7 +27,7 @@ FLAG_hidden_layer_4 = 0 #4 nodes
 FLAG_hidden_layer_5 = 0 #4 nodes
 FLAG_hidden_layer_6 = 0 #1 nodes, chokepoint
 FLAG_plot_training = 0
-FLAG_plot_history = 1
+FLAG_plot_history = 0
 
 # Build Network
 model = keras.Sequential()
@@ -54,7 +56,18 @@ model.compile(optimizer=tf.train.AdamOptimizer(),
 # Initiate Tensorboard
 #   To see tensorboard, open terminal in directory and input "tensorboard --logdir=logs/"
 #   It will output a link to open with browser. Browser will see real-time data from training.
+#   DON'T FORGET TO QUIT with CTRL+C when finished!
 tensorboard = keras.callbacks.TensorBoard(log_dir='logs/{}'.format(time()))
+
+# Create checkpoint callback (to save/load parameters)
+checkpoint_path = "checkpoints/cp-{epoch:04d}.ckpt"
+checkpoint_dir = os.path.dirname(checkpoint_path)
+
+cp_callback = keras.callbacks.ModelCheckpoint(checkpoint_path,
+                                              save_weights_only=True,
+                                              verbose=1,
+                                              period=5)
+
 
 # Generate Data - eval samples = 1000, so overall samples must be significantly greater
 [train_data, train_labels, eval_data, eval_labels, train_data_class,
@@ -67,7 +80,7 @@ history = model.fit(train_data,
                     validation_data=(eval_data, eval_labels),
                     epochs=epochs,
                     verbose=1,
-                    callbacks=[tensorboard])
+                    callbacks=[tensorboard, cp_callback])
 
 
 # Evaluate Model
@@ -85,3 +98,9 @@ if FLAG_plot_history == 1:
 predict_data = DG.data_gen_predict(samples=samples)
 prediction = model.predict_classes(predict_data)
 DP.predict_plot_2(predict_data, prediction)
+
+
+# Save entire model
+hdf5_path = 'hdf5/GaussNet2.hdf5'
+hdf5_dir = os.makedirs('hdf5', exist_ok=True)
+model.save(filepath= hdf5_path)

@@ -16,42 +16,28 @@ import Data_Plotter as DP #Gives functions for plotting data
 
 print(tf.__version__)
 
-
-# Variables
-samples = 6000
-epochs = 20
+# FLAGS
+FLAG_load_prev_model = 0 #Checks and loads GaussNet2.hdf5
+FLAG_plot_training = 0 #Plot the generated training and eval data
+FLAG_plot_history = 1 #Plot history of loss/accuracy during training
+FLAG_predict = 0 #Make predictions with model after training
 FLAG_hidden_layer_1 = 1 #32 nodes
 FLAG_hidden_layer_2 = 0 #4 nodes
 FLAG_hidden_layer_3 = 0 #4 nodes
 FLAG_hidden_layer_4 = 0 #4 nodes
 FLAG_hidden_layer_5 = 0 #4 nodes
 FLAG_hidden_layer_6 = 0 #1 nodes, chokepoint
-FLAG_plot_training = 0
-FLAG_plot_history = 0
 
-# Build Network
-model = keras.Sequential()
-model.add(keras.layers.Dense(4, input_dim=2, activation=tf.nn.relu))
-if FLAG_hidden_layer_1 == 1:
-    model.add(keras.layers.Dense(32, activation=tf.nn.relu))
-if FLAG_hidden_layer_2 == 1:
-    model.add(keras.layers.Dense(4, activation=tf.nn.relu))
-if FLAG_hidden_layer_3 == 1:
-    model.add(keras.layers.Dense(4, activation=tf.nn.relu))
-if FLAG_hidden_layer_4 == 1:
-    model.add(keras.layers.Dense(4, activation=tf.nn.relu))
-if FLAG_hidden_layer_5 == 1:
-    model.add(keras.layers.Dense(4, activation=tf.nn.relu))
-if FLAG_hidden_layer_6 == 1:
-    model.add(keras.layers.Dense(1, activation=tf.nn.relu))
-model.add(keras.layers.Dense(4, activation=tf.nn.softmax))
 
-model.summary()
+# Variables
+samples = 6000
+epochs = 20
 
-# Compile model
-model.compile(optimizer=tf.train.AdamOptimizer(),
-              loss='sparse_categorical_crossentropy',
-              metrics=['accuracy'])
+# Path directories
+hdf5_dir = os.makedirs('hdf5', exist_ok=True)
+hdf5_path = 'hdf5/GaussNet2.hdf5'
+checkpoint_path = "checkpoints/cp-{epoch:04d}.ckpt"
+checkpoint_dir = os.path.dirname(checkpoint_path)
 
 # Initiate Tensorboard
 #   To see tensorboard, open terminal in directory and input "tensorboard --logdir=logs/"
@@ -59,10 +45,7 @@ model.compile(optimizer=tf.train.AdamOptimizer(),
 #   DON'T FORGET TO QUIT with CTRL+C when finished!
 tensorboard = keras.callbacks.TensorBoard(log_dir='logs/{}'.format(time()))
 
-# Create checkpoint callback (to save/load parameters)
-checkpoint_path = "checkpoints/cp-{epoch:04d}.ckpt"
-checkpoint_dir = os.path.dirname(checkpoint_path)
-
+# Create checkpoint callback
 cp_callback = keras.callbacks.ModelCheckpoint(checkpoint_path,
                                               save_weights_only=True,
                                               verbose=1,
@@ -74,33 +57,82 @@ cp_callback = keras.callbacks.ModelCheckpoint(checkpoint_path,
  eval_data_class] = DG.data_gen_2(samples=samples)
 
 
-# Train model
-history = model.fit(train_data,
-                    train_labels,
-                    validation_data=(eval_data, eval_labels),
-                    epochs=epochs,
-                    verbose=1,
-                    callbacks=[tensorboard, cp_callback])
+# Build Network
+def create_GaussNet2():
+    model = keras.Sequential()
+    model.add(keras.layers.Dense(4, input_dim=2, activation=tf.nn.relu))
+    if FLAG_hidden_layer_1 == 1:
+        model.add(keras.layers.Dense(32, activation=tf.nn.relu))
+    if FLAG_hidden_layer_2 == 1:
+        model.add(keras.layers.Dense(4, activation=tf.nn.relu))
+    if FLAG_hidden_layer_3 == 1:
+        model.add(keras.layers.Dense(4, activation=tf.nn.relu))
+    if FLAG_hidden_layer_4 == 1:
+        model.add(keras.layers.Dense(4, activation=tf.nn.relu))
+    if FLAG_hidden_layer_5 == 1:
+        model.add(keras.layers.Dense(4, activation=tf.nn.relu))
+    if FLAG_hidden_layer_6 == 1:
+        model.add(keras.layers.Dense(1, activation=tf.nn.relu))
+    model.add(keras.layers.Dense(4, activation=tf.nn.softmax))
 
+    model.summary()
+
+    # Compile model
+    model.compile(optimizer=tf.keras.optimizers.Adam(),
+                  loss='sparse_categorical_crossentropy',
+                  metrics=['accuracy'])
+
+    return model
+
+CHECK_model_not_ready = 1 # Forces creation of new model unless file loaded
+CHECK_new_model = 1 # Avoids plotting history if training doesn't occur
+
+# Load/Create the model
+if FLAG_load_prev_model == 1:
+    try:
+        model = keras.models.load_model(filepath=hdf5_path, compile=True)
+        model.summary()
+        CHECK_model_not_ready = 0
+        CHECK_new_model = 0
+    except OSError:
+        CHECK_model_not_ready = 1
+        print('Unable to load model - creating new model')
+
+
+if CHECK_model_not_ready == 1:
+    # Build/Optimize model
+    model = create_GaussNet2()
+    model.summary()
+    # Train model
+    history = model.fit(train_data,
+                        train_labels,
+                        validation_data=(eval_data, eval_labels),
+                        epochs=epochs,
+                        verbose=1,
+                        callbacks=[tensorboard, cp_callback])
+    # Save entire model
+    model.save(filepath=hdf5_path, overwrite=True, include_optimizer=True)
+    CHECK_new_model = 1
 
 # Evaluate Model
 accuracy = model.evaluate(eval_data, eval_labels)
 print(accuracy)
 
 
-# Plot results
+# Plot training data
 if FLAG_plot_training == 1:
     DP.data_plot_2(train_data_class, eval_data_class)
+
 if FLAG_plot_history == 1:
-    DP.results_plot(history)
+    if CHECK_new_model == 1:
+        DP.results_plot(history)
+    else:
+        print('No history to print')
 
 # Make Predictions and plot
-predict_data = DG.data_gen_predict(samples=samples)
-prediction = model.predict_classes(predict_data)
-DP.predict_plot_2(predict_data, prediction)
+if FLAG_predict == 1:
+    predict_data = DG.data_gen_predict(samples=samples)
+    prediction = model.predict_classes(predict_data)
+    DP.predict_plot_2(predict_data, prediction)
 
 
-# Save entire model
-hdf5_path = 'hdf5/GaussNet2.hdf5'
-hdf5_dir = os.makedirs('hdf5', exist_ok=True)
-model.save(filepath= hdf5_path)

@@ -17,7 +17,7 @@ import Data_Plotter as DP #Gives functions for plotting data
 print(tf.__version__)
 
 # FLAGS
-FLAG_load_prev_model = 0 #Checks and loads GaussNet2.hdf5
+FLAG_load_prev_model = 1 #Checks and loads GaussNet2.hdf5
 FLAG_plot_training = 0 #Plot the generated training and eval data
 FLAG_plot_history = 1 #Plot history of loss/accuracy during training
 FLAG_predict = 0 #Make predictions with model after training

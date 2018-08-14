@@ -17,16 +17,16 @@ import Data_Plotter as DP #Gives functions for plotting data
 print(tf.__version__)
 
 # FLAGS
-FLAG_load_prev_model = 1 #Checks and loads GaussNet2.hdf5
-FLAG_plot_training = 0 #Plot the generated training and eval data
-FLAG_plot_history = 1 #Plot history of loss/accuracy during training
-FLAG_predict = 0 #Make predictions with model after training
-FLAG_hidden_layer_1 = 1 #32 nodes
-FLAG_hidden_layer_2 = 0 #4 nodes
-FLAG_hidden_layer_3 = 0 #4 nodes
-FLAG_hidden_layer_4 = 0 #4 nodes
-FLAG_hidden_layer_5 = 0 #4 nodes
-FLAG_hidden_layer_6 = 0 #1 nodes, chokepoint
+FLAG_load_prev_model = False #Checks and loads GaussNet2.hdf5
+FLAG_plot_training = False #Plot the generated training and eval data
+FLAG_plot_history = True #Plot history of loss/accuracy during training
+FLAG_predict = True #Make predictions with model after training
+FLAG_hidden_layer_1 = True #32 nodes
+FLAG_hidden_layer_2 = False #4 nodes
+FLAG_hidden_layer_3 = False #4 nodes
+FLAG_hidden_layer_4 = False #4 nodes
+FLAG_hidden_layer_5 = False #4 nodes
+FLAG_hidden_layer_6 = False #1 nodes, chokepoint
 
 
 # Variables
@@ -51,6 +51,12 @@ cp_callback = keras.callbacks.ModelCheckpoint(checkpoint_path,
                                               verbose=1,
                                               period=5)
 
+# Create Early Stopping callback
+early_stop = keras.callbacks.EarlyStopping(monitor='val_acc',
+                                           min_delta=0.001,
+                                           patience=5,
+                                           verbose=1,
+                                           mode='max')
 
 # Generate Data - eval samples = 1000, so overall samples must be significantly greater
 [train_data, train_labels, eval_data, eval_labels, train_data_class,
@@ -61,17 +67,17 @@ cp_callback = keras.callbacks.ModelCheckpoint(checkpoint_path,
 def create_GaussNet2():
     model = keras.Sequential()
     model.add(keras.layers.Dense(4, input_dim=2, activation=tf.nn.relu))
-    if FLAG_hidden_layer_1 == 1:
+    if FLAG_hidden_layer_1 == True:
         model.add(keras.layers.Dense(32, activation=tf.nn.relu))
-    if FLAG_hidden_layer_2 == 1:
+    if FLAG_hidden_layer_2 == True:
         model.add(keras.layers.Dense(4, activation=tf.nn.relu))
-    if FLAG_hidden_layer_3 == 1:
+    if FLAG_hidden_layer_3 == True:
         model.add(keras.layers.Dense(4, activation=tf.nn.relu))
-    if FLAG_hidden_layer_4 == 1:
+    if FLAG_hidden_layer_4 == True:
         model.add(keras.layers.Dense(4, activation=tf.nn.relu))
-    if FLAG_hidden_layer_5 == 1:
+    if FLAG_hidden_layer_5 == True:
         model.add(keras.layers.Dense(4, activation=tf.nn.relu))
-    if FLAG_hidden_layer_6 == 1:
+    if FLAG_hidden_layer_6 == True:
         model.add(keras.layers.Dense(1, activation=tf.nn.relu))
     model.add(keras.layers.Dense(4, activation=tf.nn.softmax))
 
@@ -84,22 +90,22 @@ def create_GaussNet2():
 
     return model
 
-CHECK_model_not_ready = 1 # Forces creation of new model unless file loaded
-CHECK_new_model = 1 # Avoids plotting history if training doesn't occur
+CHECK_model_not_ready = True # Forces creation of new model unless file loaded
+CHECK_new_model = True # Avoids plotting history if training doesn't occur
 
 # Load/Create the model
-if FLAG_load_prev_model == 1:
+if FLAG_load_prev_model == True:
     try:
         model = keras.models.load_model(filepath=hdf5_path, compile=True)
         model.summary()
-        CHECK_model_not_ready = 0
-        CHECK_new_model = 0
+        CHECK_model_not_ready = False
+        CHECK_new_model = False
     except OSError:
-        CHECK_model_not_ready = 1
+        CHECK_model_not_ready = True
         print('Unable to load model - creating new model')
 
 
-if CHECK_model_not_ready == 1:
+if CHECK_model_not_ready == True:
     # Build/Optimize model
     model = create_GaussNet2()
     model.summary()
@@ -107,12 +113,12 @@ if CHECK_model_not_ready == 1:
     history = model.fit(train_data,
                         train_labels,
                         validation_data=(eval_data, eval_labels),
-                        epochs=epochs,
+                        epochs=40,
                         verbose=1,
-                        callbacks=[tensorboard, cp_callback])
+                        callbacks=[tensorboard, cp_callback, early_stop])
     # Save entire model
     model.save(filepath=hdf5_path, overwrite=True, include_optimizer=True)
-    CHECK_new_model = 1
+    CHECK_new_model = True
 
 # Evaluate Model
 accuracy = model.evaluate(eval_data, eval_labels)
@@ -120,17 +126,17 @@ print(accuracy)
 
 
 # Plot training data
-if FLAG_plot_training == 1:
+if FLAG_plot_training == True:
     DP.data_plot_2(train_data_class, eval_data_class)
 
-if FLAG_plot_history == 1:
-    if CHECK_new_model == 1:
+if FLAG_plot_history == True:
+    if CHECK_new_model == True:
         DP.results_plot(history)
     else:
         print('No history to print')
 
 # Make Predictions and plot
-if FLAG_predict == 1:
+if FLAG_predict == True:
     predict_data = DG.data_gen_predict(samples=samples)
     prediction = model.predict_classes(predict_data)
     DP.predict_plot_2(predict_data, prediction)

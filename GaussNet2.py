@@ -17,15 +17,15 @@ import Data_Plotter as DP #Gives functions for plotting data
 print(tf.__version__)
 
 # FLAGS
-FLAG_load_prev_model = False #Checks and loads GaussNet2.hdf5
+FLAG_load_prev_model = True #Checks and loads GaussNet2.hdf5
 FLAG_plot_training = False #Plot the generated training and eval data
 FLAG_plot_history = True #Plot history of loss/accuracy during training
 FLAG_predict = True #Make predictions with model after training
 FLAG_hidden_layer_1 = True #32 nodes
-FLAG_hidden_layer_2 = False #4 nodes
-FLAG_hidden_layer_3 = False #4 nodes
-FLAG_hidden_layer_4 = False #4 nodes
-FLAG_hidden_layer_5 = False #4 nodes
+FLAG_hidden_layer_2 = True #4 nodes
+FLAG_hidden_layer_3 = True #4 nodes
+FLAG_hidden_layer_4 = True #4 nodes
+FLAG_hidden_layer_5 = True #4 nodes
 FLAG_hidden_layer_6 = False #1 nodes, chokepoint
 
 
@@ -84,8 +84,8 @@ def create_GaussNet2():
     model.summary()
 
     # Compile model
-    model.compile(optimizer=tf.keras.optimizers.Adam(),
-                  loss='sparse_categorical_crossentropy',
+    model.compile(optimizer=keras.optimizers.Adam(),
+                  loss=keras.losses.sparse_categorical_crossentropy,
                   metrics=['accuracy'])
 
     return model
